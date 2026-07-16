@@ -7,16 +7,21 @@ use Illuminate\Support\Str;
 
 class ObjectService
 {
+    private function makeObjectKey(string $ownerId, string $objectId): string
+    {
+        return "{$ownerId}/{$objectId}";
+    }
     public function createObject(
         string $bucket,
-        string $objectKey,
+        string $ownerId,
         int $size,
         ?string $checksum
     ): ObjectModel {
+        $objectId = (string) Str::uuid7();
         return ObjectModel::create([
-            'id'         => (string) Str::uuid7(),
+            'id'         => $objectId,
             'bucket'     => $bucket,
-            'object_key' => $objectKey,
+            'object_key' => $this->makeObjectKey($ownerId, $objectId),
             'size'       => $size,
             'checksum'   => $checksum,
             'status'     => 'uploading',
@@ -24,14 +29,39 @@ class ObjectService
         ]);
     }
 
-    public function find(string $id): ObjectModel
+    public function findById(string $id): ObjectModel
     {
         return ObjectModel::query()->findOrFail($id);
     }
 
-    public function markReady(string $id): ObjectModel
+    public function findByObjectKey(string $bucket, string $objectKey): ?ObjectModel
     {
-        $object = $this->find($id);
+        return ObjectModel::query()
+            ->where('bucket', $bucket)
+            ->where('object_key', $objectKey)
+            ->first();
+    }
+
+    public function findByChecksum(string $bucket, string $checksum): ?ObjectModel
+    {
+        return ObjectModel::query()
+            ->where('bucket', $bucket)
+            ->where('checksum', $checksum)
+            ->first();
+    }
+
+    public function findReady(string $bucket, string $objectKey): ?ObjectModel
+    {
+        return ObjectModel::query()
+            ->where('bucket', $bucket)
+            ->where('object_key', $objectKey)
+            ->where('status', 'ready')
+            ->first();
+    }
+
+    public function markReady(string $objectId): ObjectModel
+    {
+        $object = $this->findById($objectId);
 
         $object->update([
             'status' => 'ready',
@@ -41,9 +71,9 @@ class ObjectService
         return $object->refresh();
     }
 
-    public function markFailed(string $id): ObjectModel
+    public function markFailed(string $objectId): ObjectModel
     {
-        $object = $this->find($id);
+        $object = $this->findById($objectId);
 
         $object->update([
             'status' => 'failed',

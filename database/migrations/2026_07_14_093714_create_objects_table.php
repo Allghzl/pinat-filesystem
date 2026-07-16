@@ -22,6 +22,7 @@ return new class extends Migration
                 'ready',
                 'failed',
             ])->default('uploading')->index();
+            $table->json('metadata')->nullable();
             $table->timestamp('uploaded_at')->nullable()->index();
             $table->timestamps();
         });

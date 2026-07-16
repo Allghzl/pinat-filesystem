@@ -8,11 +8,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class ItemService
 {
-    public function createFolder(
-        string $ownerId,
-        ?string $parentId,
-        string $nameBlob
-    ): Item {
+    private function validateParent(string $ownerId, ?string $parentId): void
+    {
         if ($parentId) {
             $parent = Item::query()
                 ->where('id', $parentId)
@@ -24,6 +21,13 @@ class ItemService
                 throw new NotFoundHttpException('Parent folder not found or does not belong to the owner.');
             }
         }
+    }
+    public function createFolder(
+        string $ownerId,
+        ?string $parentId,
+        string $nameBlob
+    ): Item {
+        $this->validateParent($ownerId, $parentId);
 
         return Item::create([
             'id'         => (string) Str::uuid7(),
@@ -46,17 +50,7 @@ class ItemService
         string $mimeType,
         int $size,
     ): Item {
-        if ($parentId) {
-            $parent = Item::query()
-                ->where('id', $parentId)
-                ->where('owner_id', $ownerId)
-                ->where('type', 'folder')
-                ->first();
-
-            if (!$parent) {
-                throw new NotFoundHttpException('Parent folder not found or does not belong to the owner.');
-            }
-        }
+        $this->validateParent($ownerId, $parentId);
 
         return Item::create([
             'id'         => (string) Str::uuid7(),
@@ -80,17 +74,7 @@ class ItemService
 
     public function moveItem(Item $item, ?string $newParentId): Item
     {
-        if ($newParentId) {
-            $newParent = Item::query()
-                ->where('id', $newParentId)
-                ->where('owner_id', $item->owner_id)
-                ->where('type', 'folder')
-                ->first();
-
-            if (!$newParent) {
-                throw new NotFoundHttpException('New parent folder not found or does not belong to the owner.');
-            }
-        }
+        $this->validateParent($item->owner_id, $newParentId);
 
         $item->parent_id = $newParentId;
         $item->save();
